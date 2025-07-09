@@ -1,0 +1,4 @@
+requests
+rich
+fuzzywuzzy
+python-Levenshtein

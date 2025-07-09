@@ -1,0 +1,16 @@
+Metadata-Version: 2.4
+Name: archpkg-helper
+Version: 0.1.0
+Summary: A CLI tool to search and generate install commands for Arch Linux packages (pacman, AUR, flatpak).
+Author: AdmGenSameer
+Classifier: Programming Language :: Python :: 3
+Classifier: Operating System :: POSIX :: Linux
+Classifier: License :: OSI Approved :: MIT License
+Requires-Dist: requests
+Requires-Dist: rich
+Requires-Dist: fuzzywuzzy
+Requires-Dist: python-Levenshtein
+Dynamic: author
+Dynamic: classifier
+Dynamic: requires-dist
+Dynamic: summary
