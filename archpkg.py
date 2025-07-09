@@ -1,9 +1,10 @@
 # archpkg.py
 
 import argparse
+import sys
+import os
 from rich.console import Console
 from rich.table import Table
-from fuzzywuzzy import process
 from search_aur import search_aur
 from search_pacman import search_pacman
 from search_flatpak import search_flatpak
@@ -11,13 +12,67 @@ from command_gen import generate_command
 
 console = Console()
 
-def get_best_match(query, all_packages):
-    names = [pkg[0] for pkg in all_packages]
-    match, _ = process.extractOne(query, names)
-    for pkg in all_packages:
-        if pkg[0] == match:
-            return pkg
-    return None
+JUNK_KEYWORDS = ["icon", "dummy", "meta", "symlink", "wrap", "material", "launcher", "unionfs"]
+LOW_PRIORITY_KEYWORDS = ["extension", "plugin", "helper", "daemon", "patch", "theme"]
+
+def is_valid_package(name, desc):
+    desc = (desc or "").lower()
+    return not any(bad in desc for bad in JUNK_KEYWORDS)
+
+def get_top_matches(query, all_packages, limit=5):
+    query = query.lower()
+    query_tokens = set(query.split())
+
+    scored_results = []
+
+    for name, desc, source in all_packages:
+        if not is_valid_package(name, desc):
+            continue
+
+        name_l = name.lower()
+        desc_l = (desc or "").lower()
+
+        name_tokens = set(name_l.replace("-", " ").split())
+        desc_tokens = set(desc_l.split())
+
+        score = 0
+
+        # Exact or substring match boost
+        if query == name_l:
+            score += 100
+        elif query in name_l:
+            score += 50
+
+        # Token prefix match
+        for q in query_tokens:
+            for token in name_tokens:
+                if token.startswith(q):
+                    score += 4
+            for token in desc_tokens:
+                if token.startswith(q):
+                    score += 1
+
+        # Boost official/primary packages
+        boost_keywords = ["editor", "browser", "ide", "official", "gui", "android", "studio", "stable", "canary", "beta"]
+        for word in boost_keywords:
+            if word in name_l or word in desc_l:
+                score += 3
+
+        # Penalize less-relevant packages
+        for bad in LOW_PRIORITY_KEYWORDS:
+            if bad in name_l or bad in desc_l:
+                score -= 5
+
+        # Prefer binaries (often official)
+        if name_l.endswith("-bin"):
+            score += 10
+
+        scored_results.append(((name, desc, source), score))
+
+    scored_results.sort(key=lambda x: x[1], reverse=True)
+    top = [pkg for pkg, score in scored_results if score > 0][:limit]
+
+    return top
 
 def main():
     parser = argparse.ArgumentParser(description="Arch Package Helper CLI")
@@ -37,22 +92,48 @@ def main():
         console.print("[red]❌ No packages found.[/red]")
         return
 
-    best = get_best_match(query, all_results)
+    top_matches = get_top_matches(query, all_results, limit=5)
 
-    if best:
-        pkg, desc, source = best
-        command = generate_command(pkg, source)
+    if not top_matches:
+        console.print("[red]❌ No relevant packages found after filtering.[/red]")
+        return
 
-        table = Table(title="Best Match")
-        table.add_column("Field", style="cyan", no_wrap=True)
-        table.add_column("Value", style="magenta")
-        table.add_row("Package Name", pkg)
-        table.add_row("Source", source)
-        table.add_row("Description", desc)
-        table.add_row("Install Command", command)
-        console.print(table)
-    else:
-        console.print("[yellow]⚠️ Couldn't find a matching package.[/yellow]")
+    table = Table(title="Top Matching Packages")
+    table.add_column("Index", style="cyan", no_wrap=True)
+    table.add_column("Package Name", style="green")
+    table.add_column("Source", style="blue")
+    table.add_column("Description", style="magenta")
+
+    for idx, (pkg, desc, source) in enumerate(top_matches, 1):
+        table.add_row(str(idx), pkg, source, desc or "No description")
+
+    console.print(table)
+
+    try:
+        choice = input("\nSelect a package to install [1-5 or press Enter to cancel]: ")
+        if not choice.strip():
+            console.print("[yellow]⚠️ Cancelled by user.[/yellow]")
+            return
+        choice = int(choice)
+        if 1 <= choice <= len(top_matches):
+            selected_pkg = top_matches[choice - 1]
+            pkg, desc, source = selected_pkg
+            command = generate_command(pkg, source)
+            console.print(f"\n[bold green]✅ Install Command:[/bold green] {command}")
+            console.print("[bold yellow]Press Enter to install, or Ctrl+C to cancel...[/bold yellow]")
+            input()
+            console.print("[blue]⏳ Running install command...[/blue]")
+            os.system(command)
+        else:
+            console.print("[yellow]⚠️ Invalid choice. Exiting.[/yellow]")
+    except ValueError:
+        console.print("[red]❌ Invalid input. Please enter a number.[/red]")
+    except KeyboardInterrupt:
+        console.print("\n[red]❌ Cancelled with Ctrl+C.[/red]")
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        console.print("\n[red]❌ Cancelled with Ctrl+C.[/red]")
+        sys.exit(0)
