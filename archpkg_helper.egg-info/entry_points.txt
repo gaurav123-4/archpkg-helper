@@ -1,2 +1,2 @@
 [console_scripts]
-archpkg = archpkg:main
+archpkg = archpkg.cli:main

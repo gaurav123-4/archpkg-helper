@@ -1,5 +1,1 @@
 archpkg
-command_gen
-search_aur
-search_flatpak
-search_pacman

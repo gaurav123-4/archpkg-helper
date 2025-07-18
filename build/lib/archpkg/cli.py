@@ -92,7 +92,7 @@ def get_top_matches(query, all_packages, limit=5):
                 if token.startswith(q):
                     score += 1
 
-        boost_keywords = ["editor", "browser", "ide", "official", "gui", "android", "studio", "stable", "canary", "beta",]
+        boost_keywords = ["editor", "browser", "ide", "official", "gui", "android", "studio", "stable", "canary", "beta"]
         for word in boost_keywords:
             if word in name_l or word in desc_l:
                 score += 3
