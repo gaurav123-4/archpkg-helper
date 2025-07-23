@@ -79,11 +79,13 @@ def get_top_matches(query, all_packages, limit=5):
 
         score = 0
 
+        # 🎯 Exact match
         if query == name_l:
-            score += 100
+            score += 150
         elif query in name_l:
-            score += 50
+            score += 80
 
+        # 🔍 Fuzzy token matching
         for q in query_tokens:
             for token in name_tokens:
                 if token.startswith(q):
@@ -92,23 +94,34 @@ def get_top_matches(query, all_packages, limit=5):
                 if token.startswith(q):
                     score += 1
 
-        boost_keywords = ["editor", "browser", "ide", "official", "gui", "android", "studio", "stable", "canary", "beta",]
+        # 💡 Boost keywords
+        boost_keywords = ["editor", "browser", "ide", "official", "gui", "android", "studio", "stable", "canary", "beta"]
         for word in boost_keywords:
             if word in name_l or word in desc_l:
                 score += 3
 
+        # 🛑 Penalize junk
         for bad in LOW_PRIORITY_KEYWORDS:
             if bad in name_l or bad in desc_l:
-                score -= 5
+                score -= 10
 
         if name_l.endswith("-bin"):
+            score += 5  # lower than before
+
+        # 📦 Source priority
+        if source == "pacman" or source == "apt" or source == "dnf":
+            score += 40  # official distro repo
+        elif source == "aur":
+            score += 20
+        elif source == "flatpak":
             score += 10
+        elif source == "snap":
+            score += 5
 
         scored_results.append(((name, desc, source), score))
 
     scored_results.sort(key=lambda x: x[1], reverse=True)
     top = [pkg for pkg, score in scored_results if score > 0][:limit]
-
     return top
 
 def github_fallback(query):
