@@ -1,25 +1,30 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 setup(
     name='archpkg-helper',
     version='0.1.0',
-    py_modules=['archpkg', 'search_aur', 'search_pacman', 'search_flatpak', 'command_gen'],
+    packages=find_packages(),  # Automatically finds the archpkg/ folder
     install_requires=[
         'requests',
         'rich',
         'fuzzywuzzy',
-        'python-Levenshtein'  # Required for fuzzywuzzy speed
+        'python-Levenshtein',
+        'distro'
     ],
     entry_points={
         'console_scripts': [
-            'archpkg = archpkg:main'
+            'archpkg = archpkg.cli:main'  # entry point: archpkg/cli.py -> main()
         ]
     },
     author='AdmGenSameer',
-    description='A CLI tool to search and generate install commands for Arch Linux packages (pacman, AUR, flatpak).',
+    description='Cross-distro CLI to search and generate install commands for packages (pacman, AUR, apt, dnf, flatpak, snap).',
     classifiers=[
         'Programming Language :: Python :: 3',
         'Operating System :: POSIX :: Linux',
         'License :: OSI Approved :: MIT License',
+        'Environment :: Console',
+        'Intended Audience :: Developers',
+        'Topic :: System :: Software Distribution'
     ],
+    python_requires='>=3.7'
 )
