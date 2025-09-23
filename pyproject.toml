@@ -1,7 +1,7 @@
 [project]
-name = "archpy"
+name = "archpkg"
 version = "0.1.0"
-description = "Your ArchPy CLI tool"
+description = "Your ArchPkg CLI tool"
 authors = [{ name="AdmGenSameer", email="sameers00324@gmail.com" }]
 readme = "README.md"
 requires-python = ">=3"
@@ -14,4 +14,4 @@ dependencies = [
 ]
 
 [project.scripts]
-archpy = "archpy.cli:app"
+archpkg = "archpkg.cli:app"

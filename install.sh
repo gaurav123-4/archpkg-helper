@@ -2,7 +2,7 @@
 
 set -e
 
-echo "[*] Installing ArchPy CLI..."
+echo "[*] Installing ArchPkg CLI..."
 
 # Check for Python
 if ! command -v python3 &> /dev/null; then
@@ -26,7 +26,19 @@ if ! command -v pip3 &> /dev/null; then
     python3 get-pip.py
 fi
 
-# Install archpy
-pip3 install archpy
 
-echo "[✔] ArchPy installed. Run with: archpy"
+# Check for pipx
+if ! command -v pipx &> /dev/null; then
+    echo "[*] pipx not found. Installing..."
+    if command -v pacman &> /dev/null; then
+        sudo pacman -S --noconfirm python-pipx
+    else
+        python3 -m pip install --user pipx
+        python3 -m pipx ensurepath
+    fi
+fi
+
+# Install ArchPkg CLI with pipx from current directory
+pipx install .
+
+echo "[✔] ArchPkg installed via pipx. Run with: archpkg"
