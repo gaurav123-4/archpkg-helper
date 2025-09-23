@@ -1,0 +1,17 @@
+[project]
+name = "archpy"
+version = "0.1.0"
+description = "Your ArchPy CLI tool"
+authors = [{ name="AdmGenSameer", email="sameers00324@gmail.com" }]
+readme = "README.md"
+requires-python = ">=3"
+
+dependencies = [
+  "requests",
+  "rich",
+  "typer[all]",
+  "distro"
+]
+
+[project.scripts]
+archpy = "archpy.cli:app"
