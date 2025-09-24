@@ -1,6 +1,10 @@
 import subprocess
 
 def search_flatpak(query):
+    """
+    Searches for applications in configured Flatpak remotes (like Flathub).
+    Returns a list of (app_id, name, 'Flatpak') tuples, or an empty list on error.
+    """
     try:
         result = subprocess.run(['flatpak', 'search', query], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
         output = result.stdout.decode().strip().split('\n')
