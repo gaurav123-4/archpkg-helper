@@ -215,7 +215,7 @@ We follow [Conventional Commits](https://www.conventionalcommits.org/) format:
 
 ### Python Style
 
-- Follow [PEP 8](https://pep8.org/) Python style guide
+- Follow [PEP 8](https://peps.python.org/pep-0008/) Python style guide
 - Use meaningful variable and function names
 - Add docstrings to functions and classes
 - Keep functions focused and small when possible
