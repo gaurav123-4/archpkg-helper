@@ -114,25 +114,113 @@ However, using pipx is strongly recommended instead of breaking system protectio
 
 After installation, the CLI is available as `archpkg`.
 
-Examples:
-```sh
-# Search for a package across supported sources
-archpkg search <package-name>
+---
 
-# Generate install command(s) for a package
-archpkg install <package-name>
+### Example Commands
 
-# Generate removal command(s) for a package
-archpkg remove <package-name>
-```
+Here are some common commands for using the archpkg tool:
 
-Additional:
-```sh
+#### 1. Search for a Package
+
+Search for a package across all supported package managers:
+
+archpkg search firefox
+
+
+This command will search for the `firefox` package across multiple package managers (e.g., pacman, AUR, apt).
+
+#### 2. Install a Package
+
+Once you have identified a package, use the install command to generate the correct installation command for your system:
+
+archpkg install firefox
+
+
+This will generate an appropriate installation command (e.g., `pacman -S firefox` for Arch-based systems).
+
+#### 3. Install a Package from AUR (Arch User Repository)
+
+To install from the AUR specifically:
+
+archpkg install vscode --source aur
+
+
+This installs `vscode` from the AUR.
+
+#### 4. Install a Package from Pacman
+
+To install a package directly using pacman (e.g., on Arch Linux):
+
+archpkg install firefox --source pacman
+
+
+#### 5. Remove a Package
+
+To generate commands to remove a package:
+
+archpkg remove firefox
+
+
+This will generate the command necessary to uninstall `firefox` from your system.
+
+---
+
+### Optional Flags
+
+#### 1. `--source <source>`
+
+You can specify the package manager source using the `--source` flag. Supported sources include:
+
+- pacman (Arch Linux)
+- aur (AUR)
+- apt (Debian/Ubuntu)
+- dnf (Fedora)
+- flatpak (Flatpak)
+- snap (Snap)
+
+For example, to install `vscode` from the AUR:
+
+archpkg install vscode --source aur
+
+
+#### 2. `--help`
+
+To view a list of available commands and options:
+
 archpkg --help
-archpkg --version
-```
 
-Replace `<package-name>` with the package you want to manage.
+
+#### 3. `--version`
+
+To check the installed version of archpkg:
+
+archpkg --version
+
+
+---
+
+## Tips for Beginners
+
+- **Start by Searching:** Before installing anything, try using the `archpkg search <package-name>` command to check if the package exists and where it can be installed from.
+
+archpkg search firefox
+
+
+This will list all available versions of Firefox across supported sources.
+
+- **Understand Sources and Flags:** By default, archpkg will try to find packages from the most common sources. If you prefer to use a specific source (e.g., AUR or pacman), you can specify it using the `--source` flag.
+
+archpkg install vscode --source aur
+
+
+- **Keep It Simple with Installation:** Once you find the package you want, use the `archpkg install <package-name>` command to generate the installation command for your system.
+
+- **Removal Commands:** Don’t forget that archpkg can also generate commands for removing installed packages. For example:
+
+archpkg remove firefox
+
+
+---
 
 ## File Structure
 
