@@ -124,7 +124,9 @@ Here are some common commands for using the archpkg tool:
 
 Search for a package across all supported package managers:
 
+```sh
 archpkg search firefox
+```
 
 
 This command will search for the `firefox` package across multiple package managers (e.g., pacman, AUR, apt).
@@ -133,7 +135,9 @@ This command will search for the `firefox` package across multiple package manag
 
 Once you have identified a package, use the install command to generate the correct installation command for your system:
 
+```sh
 archpkg install firefox
+```
 
 
 This will generate an appropriate installation command (e.g., `pacman -S firefox` for Arch-based systems).
@@ -142,7 +146,9 @@ This will generate an appropriate installation command (e.g., `pacman -S firefox
 
 To install from the AUR specifically:
 
+```sh
 archpkg install vscode --source aur
+```
 
 
 This installs `vscode` from the AUR.
@@ -151,14 +157,18 @@ This installs `vscode` from the AUR.
 
 To install a package directly using pacman (e.g., on Arch Linux):
 
+```sh
 archpkg install firefox --source pacman
+```
 
 
 #### 5. Remove a Package
 
 To generate commands to remove a package:
 
+```sh
 archpkg remove firefox
+```
 
 
 This will generate the command necessary to uninstall `firefox` from your system.
@@ -180,21 +190,27 @@ You can specify the package manager source using the `--source` flag. Supported 
 
 For example, to install `vscode` from the AUR:
 
+```sh
 archpkg install vscode --source aur
+```
 
 
 #### 2. `--help`
 
 To view a list of available commands and options:
 
+```sh
 archpkg --help
+```
 
 
 #### 3. `--version`
 
 To check the installed version of archpkg:
 
+```sh
 archpkg --version
+```
 
 
 ---
@@ -203,21 +219,27 @@ archpkg --version
 
 - **Start by Searching:** Before installing anything, try using the `archpkg search <package-name>` command to check if the package exists and where it can be installed from.
 
+```sh
 archpkg search firefox
+```
 
 
 This will list all available versions of Firefox across supported sources.
 
 - **Understand Sources and Flags:** By default, archpkg will try to find packages from the most common sources. If you prefer to use a specific source (e.g., AUR or pacman), you can specify it using the `--source` flag.
 
+```sh
 archpkg install vscode --source aur
+```
 
 
 - **Keep It Simple with Installation:** Once you find the package you want, use the `archpkg install <package-name>` command to generate the installation command for your system.
 
 - **Removal Commands:** Don’t forget that archpkg can also generate commands for removing installed packages. For example:
 
+```sh
 archpkg remove firefox
+```
 
 
 ---
