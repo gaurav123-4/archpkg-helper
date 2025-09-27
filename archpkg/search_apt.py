@@ -1,54 +1,126 @@
-import subprocess
+# search_apt.py
+"""APT search module with standardized error handling and consistent source naming.
+IMPROVEMENTS: Standardized source name to lowercase, used config timeouts, unified exception handling."""
 
-def search_apt(query):
-    if not query or not query.strip():
-        raise ValueError("Empty search query provided")
+import subprocess
+from typing import List, Tuple
+from archpkg.config import TIMEOUTS
+from archpkg.exceptions import PackageManagerNotFound, PackageSearchException, TimeoutError, ValidationError
+from archpkg.logging_config import get_logger, PackageHelperLogger
+
+logger = get_logger(__name__)
+
+def search_apt(query: str) -> List[Tuple[str, str, str]]:
+    """Search for packages using the APT package manager.
     
-    # check if apt cache is available
+    Args:
+        query: Search query string
+        
+    Returns:
+        List[Tuple[str, str, str]]: List of (name, description, source) tuples
+        
+    Raises:
+        ValidationError: When query is empty or invalid
+        PackageManagerNotFound: When APT is not available
+        TimeoutError: When search times out
+        PackageSearchException: For other search-related errors
+    """
+    logger.info(f"Starting APT search for query: '{query}'")
+    
+    # Input validation
+    if not query or not query.strip():
+        logger.error("Empty search query provided to APT search")
+        raise ValidationError("Search query cannot be empty. Please provide a package name to search for.")
+    
+    # Check if apt-cache is available
+    logger.debug("Checking APT availability")
     try:
         subprocess.run(['apt-cache', '--version'], 
-                      capture_output=True, check=True, timeout=5)
+                      capture_output=True, check=True, timeout=TIMEOUTS['command_check'])
+        logger.debug("APT is available and responsive")
     except FileNotFoundError:
-        raise FileNotFoundError("apt-cache command not found. This system may not be Debian/Ubuntu-based.")
-    except subprocess.CalledProcessError:
-        raise RuntimeError("apt-cache is installed but not working properly.")
+        logger.error("apt-cache command not found")
+        raise PackageManagerNotFound(
+            "APT package manager is not available on this system. "
+            "This feature requires a Debian/Ubuntu-based distribution."
+        )
+    except subprocess.CalledProcessError as e:
+        logger.error(f"APT cache check failed with return code {e.returncode}")
+        raise PackageSearchException(
+            "APT cache is installed but not functioning properly. Try running: sudo apt update"
+        )
     except subprocess.TimeoutExpired:
-        raise TimeoutError("apt-cache is not responding.")
+        logger.warning("APT cache version check timed out")
+        raise TimeoutError("APT cache is not responding. Please check your system configuration.")
 
     try:
+        logger.debug(f"Executing apt-cache search with timeout {TIMEOUTS['apt']}s")
+        # IMPROVED: Use config timeout value
         result = subprocess.run(
             ["apt-cache", "search", query.strip()], 
             capture_output=True, 
             text=True,
-            timeout=30,
+            timeout=TIMEOUTS['apt'],
             check=False
         )
         
+        logger.debug(f"APT search completed with return code: {result.returncode}")
+        
         if result.returncode != 0:
             error_msg = result.stderr.strip()
+            logger.warning(f"APT search failed with error: {error_msg}")
+            
             if "Unable to locate package" in error_msg:
+                logger.info("No packages found (normal result)")
                 return []  # no packages found, which is normal
             elif "E: Could not open lock file" in error_msg:
-                raise PermissionError("Cannot access APT cache. Try running: sudo apt update")
+                logger.error("APT cache is locked")
+                raise PackageSearchException(
+                    "Cannot access APT cache - another package operation may be running. "
+                    "Wait a moment and try again, or run: sudo apt update"
+                )
             else:
-                raise RuntimeError(f"apt-cache search failed: {error_msg or 'Unknown error'}")
+                logger.error(f"APT search failed with unknown error: {error_msg}")
+                raise PackageSearchException(
+                    "APT search failed. Try updating your package cache with: sudo apt update"
+                )
 
         output = result.stdout.strip()
         if not output:
+            logger.info("APT search returned empty output")
             return []
 
+        logger.debug("Parsing APT search results")
         packages = []
+        lines_processed = 0
+        
         for line in output.split('\n'):
             line = line.strip()
             if not line:
                 continue
+                
+            lines_processed += 1
+            
             if ' - ' in line:
                 name, desc = line.split(' - ', 1)
-                packages.append((name.strip(), desc.strip(), "APT"))
+                # IMPROVED: Standardized source name to lowercase
+                packages.append((name.strip(), desc.strip(), "apt"))
+                logger.debug(f"Found APT package: {name.strip()}")
             
+        logger.info(f"APT search completed: {len(packages)} packages found from {lines_processed} lines")
         return packages
         
     except subprocess.TimeoutExpired:
-        raise TimeoutError("APT search timed out. Try updating package cache: sudo apt update")
+        logger.error(f"APT search timed out after {TIMEOUTS['apt']}s")
+        raise TimeoutError(
+            "APT search timed out. Your package cache may need updating. Try: sudo apt update"
+        )
+    except (ValidationError, PackageManagerNotFound, TimeoutError, PackageSearchException):
+        # Re-raise our specific exceptions
+        raise
     except Exception as e:
-        raise RuntimeError(f"Unexpected error during APT search: {str(e)}")
+        PackageHelperLogger.log_exception(logger, "Unexpected error during APT search", e)
+        raise PackageSearchException(
+            "An unexpected error occurred while searching APT packages. "
+            "Please try again or check your system configuration."
+        )

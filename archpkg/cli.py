@@ -1,88 +1,85 @@
 #!/usr/bin/python
-# archpkg.py
+# cli.py
+"""Universal Package Helper CLI - Main module with improved consistency."""
 
 import argparse
 import sys
 import os
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import webbrowser
+from typing import List, Tuple, Optional
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
-import typer
-from search_aur import search_aur
-from search_pacman import search_pacman
-from search_flatpak import search_flatpak
-from search_snap import search_snap
-from search_apt import search_apt
-from search_dnf import search_dnf
-from command_gen import generate_command
+import logging
+
+# Import modules
+from archpkg.config import JUNK_KEYWORDS, LOW_PRIORITY_KEYWORDS, BOOST_KEYWORDS, DISTRO_MAP
+from archpkg.exceptions import PackageManagerNotFound, NetworkError, TimeoutError
+from archpkg.search_aur import search_aur
+from archpkg.search_pacman import search_pacman
+from archpkg.search_flatpak import search_flatpak
+from archpkg.search_snap import search_snap
+from archpkg.search_apt import search_apt
+from archpkg.search_dnf import search_dnf
+from archpkg.command_gen import generate_command
+from archpkg.logging_config import get_logger, PackageHelperLogger
 
 console = Console()
-app = typer.Typer(help="Universal Package Helper CLI")
+logger = get_logger(__name__)
 
+# Dependency check for `distro`
 try:
     import distro
-except ModuleNotFoundError:
+    logger.info("Successfully imported distro module")
+except ModuleNotFoundError as e:
+    logger.error(f"Required dependency 'distro' is not installed: {e}")
     console.print(Panel(
-        "[red]❌ Required dependency 'distro' is not installed.[/red]\n\n"
+        "[red]Required dependency 'distro' is not installed.[/red]\n\n"
         "[bold yellow]To fix this issue:[/bold yellow]\n"
-        "• Run: [cyan]pip install distro[/cyan]\n"
-        "• Or reinstall the package: [cyan]pip install --upgrade archpkg-helper[/cyan]\n"
-        "• If using pipx: [cyan]pipx reinstall archpkg-helper[/cyan]",
+        "- Run: [cyan]pip install distro[/cyan]\n"
+        "- Or reinstall the package: [cyan]pip install --upgrade archpkg-helper[/cyan]\n"
+        "- If using pipx: [cyan]pipx reinstall archpkg-helper[/cyan]",
         title="Missing Dependency",
         border_style="red"
     ))
     sys.exit(1)
 
-JUNK_KEYWORDS = ["icon", "dummy", "meta", "symlink", "wrap", "material", "launcher", "unionfs"]
-LOW_PRIORITY_KEYWORDS = ["extension", "plugin", "helper", "daemon", "patch", "theme"]
-SUPPORTED_PLATFORMS = ["arch", "debian", "ubuntu", "linuxmint", "fedora", "manjaro"]
-
-def detect_distro():
-    """Detect the current Linux distribution with detailed error handling."""
+def detect_distro() -> str:
+    """Detect the current Linux distribution with detailed error handling.
+    
+    Returns:
+        str: Detected distribution family ('arch', 'debian', 'fedora', or 'unknown')
+    """
+    logger.info("Starting distribution detection")
+    
     try:
         dist = distro.id().lower().strip()
+        logger.debug(f"Raw distribution ID: '{dist}'")
         
         if not dist:
+            logger.warning("Empty distribution ID detected")
             console.print(Panel(
-                "[yellow]⚠️ Unable to detect your Linux distribution.[/yellow]\n\n"
+                "[yellow]Unable to detect your Linux distribution.[/yellow]\n\n"
                 "[bold cyan]Possible solutions:[/bold cyan]\n"
-                "• Ensure you're running on a supported Linux distribution\n"
-                "• Check if /etc/os-release file exists\n"
-                "• Try running: [cyan]cat /etc/os-release[/cyan]",
+                "- Ensure you're running on a supported Linux distribution\n"
+                "- Check if the /etc/os-release file exists\n"
+                "- Try running: [cyan]cat /etc/os-release[/cyan]",
                 title="Distribution Detection Warning",
                 border_style="yellow"
             ))
             return "unknown"
-
-        DISTRO_MAP = {
-            "arch": "arch",
-            "manjaro": "arch", 
-            "endeavouros": "arch",
-            "arco": "arch",
-            "garuda": "arch",
-            "ubuntu": "debian",
-            "debian": "debian", 
-            "linuxmint": "debian",
-            "pop": "debian",
-            "elementary": "debian",
-            "fedora": "fedora",
-            "rhel": "fedora",
-            "centos": "fedora", 
-            "rocky": "fedora",
-            "alma": "fedora"
-        }
-
+        
         detected_family = DISTRO_MAP.get(dist, "unknown")
+        logger.info(f"Detected distribution: '{dist}' -> family: '{detected_family}'")
         
         if detected_family == "unknown":
+            logger.warning(f"Unsupported distribution detected: '{dist}'")
             console.print(Panel(
-                f"[yellow]⚠️ Unsupported distribution detected: '{dist}'[/yellow]\n\n"
+                f"[yellow]Unsupported distribution detected: '{dist}'[/yellow]\n\n"
                 "[bold cyan]What you can do:[/bold cyan]\n"
-                "• Only Flatpak and Snap searches will be available\n"
-                "• Consider requesting support for your distribution\n"
-                f"• Supported distributions: {', '.join(SUPPORTED_PLATFORMS)}",
+                "- Only Flatpak and Snap searches will be available\n"
+                "- Consider requesting support for your distribution\n"
+                f"- Supported distributions: {', '.join(DISTRO_MAP.keys())}",
                 title="Unsupported Distribution",
                 border_style="yellow"
             ))
@@ -90,27 +87,36 @@ def detect_distro():
         return detected_family
         
     except Exception as e:
+        PackageHelperLogger.log_exception(logger, "Failed to detect distribution", e)
         console.print(Panel(
-            f"[red]❌ Failed to detect your Linux distribution.[/red]\n\n"
+            f"[red]Failed to detect your Linux distribution.[/red]\n\n"
             f"[bold]Error details:[/bold] {str(e)}\n\n"
             "[bold cyan]Troubleshooting steps:[/bold cyan]\n"
-            "• Ensure you're running on a Linux system\n"
-            "• Check if the 'distro' package is properly installed\n"
-            "• Try reinstalling: [cyan]pip install --upgrade distro[/cyan]\n"
-            "• Report this issue if the problem persists",
+            "- Ensure you're running on a Linux system\n"
+            "- Check if the 'distro' package is properly installed\n"
+            "- Try reinstalling: [cyan]pip install --upgrade distro[/cyan]\n"
+            "- Report this issue if the problem persists",
             title="Distribution Detection Failed",
             border_style="red"
         ))
         return "unknown"
 
-def is_valid_package(name, desc):
+def is_valid_package(name: str, desc: Optional[str]) -> bool:
     """Check if a package is valid (not junk/meta package)."""
     desc = (desc or "").lower()
-    return not any(bad in desc for bad in JUNK_KEYWORDS)
+    is_junk = any(bad in desc for bad in JUNK_KEYWORDS)
+    
+    if is_junk:
+        logger.debug(f"Package '{name}' filtered out as junk package")
+    
+    return not is_junk
 
-def get_top_matches(query, all_packages, limit=5):
+def get_top_matches(query: str, all_packages: List[Tuple[str, str, str]], limit: int = 5) -> List[Tuple[str, str, str]]:
     """Get top matching packages with improved scoring algorithm."""
+    logger.debug(f"Scoring {len(all_packages)} packages for query: '{query}'")
+    
     if not all_packages:
+        logger.debug("No packages to score")
         return []
         
     query = query.lower()
@@ -131,10 +137,12 @@ def get_top_matches(query, all_packages, limit=5):
         # Exact match scoring
         if query == name_l:
             score += 150
+            logger.debug(f"Exact match bonus for '{name}': +150")
         elif query in name_l:
             score += 80
+            logger.debug(f"Substring match bonus for '{name}': +80")
 
-        # 🔍 Fuzzy token matching
+        # Fuzzy token matching
         for q in query_tokens:
             for token in name_tokens:
                 if token.startswith(q):
@@ -143,13 +151,12 @@ def get_top_matches(query, all_packages, limit=5):
                 if token.startswith(q):
                     score += 1
 
-        # 💡 Boost keywords
-        boost_keywords = ["editor", "browser", "ide", "official", "gui", "android", "studio", "stable", "canary", "beta"]
-        for word in boost_keywords:
+        # Boost keywords
+        for word in BOOST_KEYWORDS:
             if word in name_l or word in desc_l:
                 score += 3
 
-        # 🛑 Penalize junk
+        # Penalize low priority
         for bad in LOW_PRIORITY_KEYWORDS:
             if bad in name_l or bad in desc_l:
                 score -= 10
@@ -157,55 +164,65 @@ def get_top_matches(query, all_packages, limit=5):
         if name_l.endswith("-bin"):
             score += 5
 
-        # 📦 Source priority
-        if source == "pacman" or source == "apt" or source == "dnf":
-            score += 40
-        elif source == "aur":
-            score += 20
-        elif source == "flatpak":
-            score += 10
-        elif source == "snap":
-            score += 5
+        # Source priority (IMPROVED: consistent scoring)
+        source_priority = {
+            "pacman": 40, "apt": 40, "dnf": 40,
+            "aur": 20,
+            "flatpak": 10,
+            "snap": 5
+        }
+        score += source_priority.get(source.lower(), 0)
 
         scored_results.append(((name, desc, source), score))
 
     scored_results.sort(key=lambda x: x[1], reverse=True)
     top = [pkg for pkg, score in scored_results if score > 0][:limit]
+    
+    logger.info(f"Found {len(top)} top matches from {len(all_packages)} total packages")
+    for i, (pkg_info, score) in enumerate(scored_results[:limit]):
+        logger.debug(f"Top match #{i+1}: {pkg_info[0]} (score: {score})")
+    
     return top
 
-def github_fallback(query):
+def github_fallback(query: str) -> None:
     """Provide GitHub search fallback with clear messaging."""
+    logger.info(f"No packages found for query '{query}', providing GitHub fallback")
+    
     console.print(Panel(
-        f"[yellow]🔎 No packages found for '{query}' in available repositories.[/yellow]\n\n"
+        f"[yellow]No packages found for '{query}' in available repositories.[/yellow]\n\n"
         "[bold cyan]Alternative options:[/bold cyan]\n"
-        "• Search GitHub for source code or releases\n"
-        "• Check if the package name is spelled correctly\n" 
-        "• Try searching with different keywords\n"
-        "• Look for similar packages with: [cyan]archpkg <similar-name>[/cyan]",
+        "- Search GitHub for source code or releases\n"
+        "- Check if the package name is spelled correctly\n" 
+        "- Try searching with different keywords\n"
+        "- Look for similar packages with: [cyan]archpkg <similar-name>[/cyan]",
         title="No Packages Found",
         border_style="yellow"
     ))
     
     try:
         url = f"https://github.com/search?q={query.replace(' ', '+')}&type=repositories"
-        console.print(f"[blue]🌐 Opening GitHub search:[/blue] {url}")
+        logger.info(f"Opening GitHub search URL: {url}")
+        console.print(f"[blue]Opening GitHub search:[/blue] {url}")
         webbrowser.open(url)
     except Exception as e:
+        PackageHelperLogger.log_exception(logger, "Failed to open web browser for GitHub search", e)
         console.print(Panel(
-            f"[red]❌ Failed to open web browser.[/red]\n\n"
+            f"[red]Failed to open web browser.[/red]\n\n"
             f"[bold]Error:[/bold] {str(e)}\n\n"
             "[bold cyan]Manual search:[/bold cyan]\n"
-            f"• Visit: https://github.com/search?q={query.replace(' ', '+')}&type=repositories\n"
-            "• Or search manually on GitHub",
+            f"- Visit: https://github.com/search?q={query.replace(' ', '+')}&type=repositories\n"
+            "- Or search manually on GitHub",
             title="Browser Error", 
             border_style="red"
         ))
 
-def handle_search_errors(source_name, error):
+def handle_search_errors(source_name: str, error: Exception) -> None:
     """Centralized error handling for search operations."""
+    PackageHelperLogger.log_exception(logger, f"{source_name} search failed", error)
+    
     error_messages = {
         "aur": {
-            "connection": "Cannot connect to AUR servers. Check your internet connection.",
+            "network": "Cannot connect to AUR servers. Check your internet connection.",
             "timeout": "AUR search timed out. Try again later.",
             "generic": "AUR search failed. The service might be temporarily unavailable."
         },
@@ -236,116 +253,186 @@ def handle_search_errors(source_name, error):
         }
     }
     
-    # determine specific error type
-    error_str = str(error).lower()
-    if "connection" in error_str or "network" in error_str:
-        error_type = "connection"
-    elif "timeout" in error_str:
+    # Determine specific error type
+    if isinstance(error, (NetworkError, ConnectionError)):
+        error_type = "network"
+    elif isinstance(error, TimeoutError):
         error_type = "timeout"
-    elif "not found" in error_str or "command not found" in error_str:
+    elif isinstance(error, PackageManagerNotFound):
         error_type = "not_found"
-    elif "permission" in error_str:
+    elif isinstance(error, PermissionError):
         error_type = "permission"
     else:
         error_type = "generic"
     
     message = error_messages.get(source_name, {}).get(error_type, f"{source_name} search encountered an error.")
-    
-    console.print(f"[yellow]⚠️ {source_name.upper()}: {message}[/yellow]")
+    console.print(f"[yellow]{source_name.upper()}: {message}[/yellow]")
 
-def main():
+def main() -> None:
+    """
+    Main entrypoint for CLI search + install flow.
+    IMPROVED: Better type annotations and error handling.
+    """
+
+    logger.info("Starting archpkg-helper CLI")
+    
     parser = argparse.ArgumentParser(description="Universal Package Helper CLI")
-    parser.add_argument('query', type=str, nargs='+', help='Name of the software to search for')
+    parser.add_argument('query', type=str, nargs='*', help='Name of the software to search for')
+    parser.add_argument('--debug', action='store_true', help='Enable debug logging to console')
+    parser.add_argument('--log-info', action='store_true', help='Show logging configuration and exit')
     args = parser.parse_args()
+    
+    # Enable debug mode if requested
+    if args.debug:
+        PackageHelperLogger.set_debug_mode(True)
+        logger.info("Debug mode enabled via command line argument")
+    
+    # Show logging info if requested
+    if args.log_info:
+        from logging_config import get_log_info
+        log_info = get_log_info()
+        console.print(Panel(
+            f"[bold cyan]Logging Configuration:[/bold cyan]\n"
+            f"File logging: {'[green]Enabled[/green]' if log_info['file_logging_enabled'] else '[red]Disabled[/red]'}\n"
+            f"Log file: [cyan]{log_info['log_file'] or 'None'}[/cyan]\n"
+            f"Log level: [yellow]{logging.getLevelName(log_info['log_level'])}[/yellow]\n"
+            f"Active handlers: [blue]{log_info['handler_count']}[/blue]",
+            title="Logging Information",
+            border_style="blue"
+        ))
+        return
+    
+    if not args.query:
+        console.print(Panel(
+            "[red]No search query provided.[/red]\n\n"
+            "[bold cyan]Usage:[/bold cyan]\n"
+            "- [cyan]archpkg firefox[/cyan] - Search for Firefox\n"
+            "- [cyan]archpkg visual studio code[/cyan] - Search for VS Code\n"
+            "- [cyan]archpkg --debug firefox[/cyan] - Search with debug output\n"
+            "- [cyan]archpkg --log-info[/cyan] - Show logging configuration\n"
+            "- [cyan]archpkg --help[/cyan] - Show help information",
+            title="Invalid Input",
+            border_style="red"
+        ))
+        return
+    
     query = ' '.join(args.query)
+    logger.info(f"Search query: '{query}'")
 
     if not query.strip():
+        logger.warning("Empty search query provided by user")
         console.print(Panel(
-            "[red]❌ Empty search query provided.[/red]\n\n"
+            "[red]Empty search query provided.[/red]\n\n"
             "[bold cyan]Usage:[/bold cyan]\n"
-            "• [cyan]archpkg firefox[/cyan] - Search for Firefox\n"
-            "• [cyan]archpkg visual studio code[/cyan] - Search for VS Code\n"
-            "• [cyan]archpkg --help[/cyan] - Show help information",
+            "- [cyan]archpkg firefox[/cyan] - Search for Firefox\n"
+            "- [cyan]archpkg visual studio code[/cyan] - Search for VS Code\n"
+            "- [cyan]archpkg --help[/cyan] - Show help information",
             title="Invalid Input",
             border_style="red"
         ))
         return
 
     detected = detect_distro()
-    console.print(f"\n:mag: [bold green]Searching for[/bold green] '{query}' on [cyan]{detected}[/cyan] platform...\n")
+    console.print(f"\nSearching for '{query}' on [cyan]{detected}[/cyan] platform...\n")
 
     results = []
     search_errors = []
 
-    # search based on detected distribution
+    # Search based on detected distribution
     if detected == "arch":
+        logger.info("Searching Arch-based repositories (AUR + pacman)")
+        
         try:
+            logger.debug("Starting AUR search")
             aur_results = search_aur(query)
             results.extend(aur_results)
+            logger.info(f"AUR search returned {len(aur_results)} results")
         except Exception as e:
             handle_search_errors("aur", e)
             search_errors.append("AUR")
             
         try:
+            logger.debug("Starting pacman search")
             pacman_results = search_pacman(query) 
             results.extend(pacman_results)
+            logger.info(f"Pacman search returned {len(pacman_results)} results")
         except Exception as e:
             handle_search_errors("pacman", e)
             search_errors.append("Pacman")
             
     elif detected == "debian":
+        logger.info("Searching Debian-based repositories (APT)")
+        
         try:
+            logger.debug("Starting APT search")
             apt_results = search_apt(query)
             results.extend(apt_results)
+            logger.info(f"APT search returned {len(apt_results)} results")
         except Exception as e:
             handle_search_errors("apt", e)
             search_errors.append("APT")
             
     elif detected == "fedora":
+        logger.info("Searching Fedora-based repositories (DNF)")
+        
         try:
+            logger.debug("Starting DNF search")
             dnf_results = search_dnf(query)
             results.extend(dnf_results)
+            logger.info(f"DNF search returned {len(dnf_results)} results")
         except Exception as e:
             handle_search_errors("dnf", e)
             search_errors.append("DNF")
 
-    # universal package managers
+    # Universal package managers
+    logger.info("Searching universal package managers (Flatpak + Snap)")
+    
     try:
+        logger.debug("Starting Flatpak search")
         flatpak_results = search_flatpak(query)
         results.extend(flatpak_results)
+        logger.info(f"Flatpak search returned {len(flatpak_results)} results")
     except Exception as e:
         handle_search_errors("flatpak", e)
         search_errors.append("Flatpak")
 
     try:
+        logger.debug("Starting Snap search")
         snap_results = search_snap(query)
         results.extend(snap_results)
+        logger.info(f"Snap search returned {len(snap_results)} results")
     except Exception as e:
         handle_search_errors("snap", e)
         search_errors.append("Snap")
 
-    # show search summary
+    # Show search summary
     if search_errors:
+        logger.warning(f"Some search sources failed: {search_errors}")
         console.print(f"[dim]Note: Some sources unavailable: {', '.join(search_errors)}[/dim]\n")
 
+    logger.info(f"Total search results: {len(results)}")
+
     if not results:
+        logger.info("No results found, providing GitHub fallback")
         github_fallback(query)
         return
 
     top_matches = get_top_matches(query, results, limit=5)
     if not top_matches:
+        logger.warning("No close matches found after scoring")
         console.print(Panel(
-            f"[yellow]⚠️ Found {len(results)} packages, but none match '{query}' closely.[/yellow]\n\n"
+            f"[yellow]Found {len(results)} packages, but none match '{query}' closely.[/yellow]\n\n"
             "[bold cyan]Suggestions:[/bold cyan]\n"
-            "• Try a more specific search term\n"
-            "• Check spelling of the package name\n"
-            "• Use broader keywords (e.g., 'editor' instead of 'vim')\n"
-            f"• Search GitHub: [cyan]https://github.com/search?q={query.replace(' ', '+')}[/cyan]",
+            "- Try a more specific search term\n"
+            "- Check spelling of the package name\n"
+            "- Use broader keywords (e.g., 'editor' instead of 'vim')\n"
+            f"- Search GitHub: [cyan]https://github.com/search?q={query.replace(' ', '+')}[/cyan]",
             title="No Close Matches",
             border_style="yellow"
         ))
         return
 
+    # Display results
     table = Table(title="Top Matching Packages")
     table.add_column("Index", style="cyan", no_wrap=True)
     table.add_column("Package Name", style="green")
@@ -356,33 +443,40 @@ def main():
         table.add_row(str(idx), pkg, source, desc or "No description")
 
     console.print(table)
-
+    
+    # Interactive installation flow
     try:
+        logger.info("Starting interactive installation flow")
         choice = input("\nSelect a package to install [1-5 or press Enter to cancel]: ")
+        
         if not choice.strip():
-            console.print("[yellow]⚠️ Installation cancelled by user.[/yellow]")
+            logger.info("Installation cancelled by user (empty input)")
+            console.print("[yellow]Installation cancelled by user.[/yellow]")
             return
             
         try:
             choice = int(choice)
+            logger.debug(f"User selected choice: {choice}")
         except ValueError:
+            logger.warning(f"Invalid user input: '{choice}'")
             console.print(Panel(
-                "[red]❌ Invalid input. Please enter a number.[/red]\n\n"
+                "[red]Invalid input. Please enter a number.[/red]\n\n"
                 "[bold cyan]Valid options:[/bold cyan]\n"
-                "• Enter 1-5 to select a package\n"
-                "• Press Enter to cancel\n"
-                "• Use Ctrl+C to exit",
+                "- Enter 1-5 to select a package\n"
+                "- Press Enter to cancel\n"
+                "- Use Ctrl+C to exit",
                 title="Invalid Input",
                 border_style="red"
             ))
             return
             
         if not (1 <= choice <= len(top_matches)):
+            logger.warning(f"Choice {choice} out of range (1-{len(top_matches)})")
             console.print(Panel(
-                f"[red]❌ Choice {choice} is out of range.[/red]\n\n"
+                f"[red]Choice {choice} is out of range.[/red]\n\n"
                 f"[bold cyan]Available options:[/bold cyan] 1-{len(top_matches)}\n"
-                "• Try again with a valid number\n"
-                "• Press Enter to cancel",
+                "- Try again with a valid number\n"
+                "- Press Enter to cancel",
                 title="Invalid Choice",
                 border_style="red"
             ))
@@ -390,95 +484,77 @@ def main():
             
         selected_pkg = top_matches[choice - 1]
         pkg, desc, source = selected_pkg
+        logger.info(f"User selected package: '{pkg}' from source '{source}'")
+        
         command = generate_command(pkg, source)
         
         if not command:
+            logger.error(f"Failed to generate install command for {source} package: {pkg}")
             console.print(Panel(
-                f"[red]❌ Cannot generate install command for {source} packages.[/red]\n\n"
+                f"[red]Cannot generate install command for {source} packages.[/red]\n\n"
                 "[bold cyan]Possible solutions:[/bold cyan]\n"
-                f"• Install {source.lower()} package manager first\n"
-                "• Check if the package manager is in your PATH\n"
-                f"• Manually install: check {source.lower()} documentation",
+                f"- Install {source.lower()} package manager first\n"
+                "- Check if the package manager is in your PATH\n"
+                f"- Manually install: check {source.lower()} documentation",
                 title="Command Generation Failed",
                 border_style="red"
             ))
             return
             
-        console.print(f"\n[bold green]✅ Install Command:[/bold green] {command}")
+        logger.info(f"Generated install command: {command}")
+        console.print(f"\n[bold green]Install Command:[/bold green] {command}")
         console.print("[bold yellow]Press Enter to install, or Ctrl+C to cancel...[/bold yellow]")
         
         try:
             input()
-            console.print("[blue]⏳ Running install command...[/blue]")
+            logger.info("User confirmed installation, executing command")
+            console.print("[blue]Running install command...[/blue]")
             exit_code = os.system(command)
             
             if exit_code != 0:
+                logger.error(f"Installation failed with exit code: {exit_code}")
                 console.print(Panel(
-                    f"[red]❌ Installation failed with exit code {exit_code}.[/red]\n\n"
+                    f"[red]Installation failed with exit code {exit_code}.[/red]\n\n"
                     "[bold cyan]Troubleshooting:[/bold cyan]\n"
-                    "• Check if you have sufficient permissions\n"
-                    "• Ensure package manager is properly configured\n"
-                    "• Try running the command manually\n"
-                    f"• Command: [cyan]{command}[/cyan]",
+                    "- Check if you have sufficient permissions\n"
+                    "- Ensure package manager is properly configured\n"
+                    "- Try running the command manually\n"
+                    f"- Command: [cyan]{command}[/cyan]",
                     title="Installation Failed",
                     border_style="red"
                 ))
             else:
-                console.print(f"[bold green]✅ Successfully installed {pkg}![/bold green]")
+                logger.info(f"Successfully installed package: {pkg}")
+                console.print(f"[bold green]Successfully installed {pkg}![/bold green]")
                 
         except KeyboardInterrupt:
-            console.print("\n[yellow]⚠️ Installation cancelled by user.[/yellow]")
+            logger.info("Installation cancelled by user (Ctrl+C)")
+            console.print("\n[yellow]Installation cancelled by user.[/yellow]")
             
     except KeyboardInterrupt:
-        console.print("\n[yellow]⚠️ Selection cancelled by user.[/yellow]")
+        logger.info("Package selection cancelled by user (Ctrl+C)")
+        console.print("\n[yellow]Selection cancelled by user.[/yellow]")
 
 if __name__ == '__main__':
     try:
         main()
     except KeyboardInterrupt:
-        console.print("\n[yellow]⚠️ Operation cancelled by user.[/yellow]")
+        logger.info("Application terminated by user (Ctrl+C)")
+        console.print("\n[yellow]Operation cancelled by user.[/yellow]")
         sys.exit(0)
     except Exception as e:
+        PackageHelperLogger.log_exception(logger, "Unexpected error in main application", e)
         console.print(Panel(
-            f"[red]❌ An unexpected error occurred.[/red]\n\n"
+            f"[red]An unexpected error occurred.[/red]\n\n"
             f"[bold]Error details:[/bold] {str(e)}\n\n"
             "[bold cyan]What to do:[/bold cyan]\n"
-            "• Try running the command again\n"
-            "• Check if all dependencies are installed\n"
-            "• Report this issue if it persists\n"
-            f"• Include this error message in your report",
+            "- Try running the command again\n"
+            "- Check if all dependencies are installed\n"
+            "- Report this issue if it persists\n"
+            "- Include this error message in your report",
             title="Unexpected Error",
             border_style="red"
         ))
-        sys.exit(1)
+        sys.exit(1) 
 
-# add Typer app command to match entry point in pyproject.toml
-@app.callback()
-def callback():
-    """Universal Package Helper CLI"""
-    pass
-
-@app.command()
-def search(query: str = typer.Argument(..., help="Name of the software to search for")):
-    """Search for packages across multiple sources"""
-    try:
-        # convert query to list format expected by main
-        args = query.split()
-        sys.argv = [sys.argv[0]] + args
-        main()
-    except KeyboardInterrupt:
-        console.print("\n[yellow]⚠️ Search cancelled by user.[/yellow]")
-        sys.exit(0)
-    except Exception as e:
-        console.print(Panel(
-            f"[red]❌ Search operation failed.[/red]\n\n"
-            f"[bold]Error details:[/bold] {str(e)}\n\n"
-            "[bold cyan]Try:[/bold cyan]\n"
-            "• Check your search query spelling\n"
-            "• Ensure you have internet connectivity\n"
-            "• Verify package managers are installed\n"
-            f"• Report this error if it continues",
-            title="Search Failed",
-            border_style="red"
-        ))
-        sys.exit(1)
+app = main
