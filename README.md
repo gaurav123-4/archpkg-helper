@@ -242,6 +242,11 @@ archpkg remove firefox
 ```
 
 
+- **Auto-detect Your Package Manager:** If you’re unsure which package manager your distro uses, don’t worry! The archpkg-helper tool can automatically detect your system, making it easier to get started without manual configuration.
+
+- **Handle Permission Errors with sudo:** If you encounter permission errors, try using `sudo` (superuser privileges) for commands that require administrative rights, especially when installing prerequisites or system packages.
+
+
 ---
 
 ## File Structure
