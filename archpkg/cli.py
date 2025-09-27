@@ -100,7 +100,7 @@ def detect_distro() -> str:
             border_style="red"
         ))
         return "unknown"
-
+    
 def is_valid_package(name: str, desc: Optional[str]) -> bool:
     """Check if a package is valid (not junk/meta package)."""
     desc = (desc or "").lower()
