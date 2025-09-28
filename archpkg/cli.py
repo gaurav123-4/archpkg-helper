@@ -289,7 +289,7 @@ def main() -> None:
     
     # Show logging info if requested
     if args.log_info:
-        from logging_config import get_log_info
+        from archpkg.logging_config import get_log_info
         log_info = get_log_info()
         console.print(Panel(
             f"[bold cyan]Logging Configuration:[/bold cyan]\n"
