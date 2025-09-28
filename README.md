@@ -268,6 +268,11 @@ archpkg-helper/
 
 Some metadata/build directories are generated during packaging and may not be present in fresh clones.
 
+## Notes
+
+  - The installer ensures Python, pip, and pipx are available.
+  - You may be prompted for sudo.
+
 ## Contributing
 
 Contributions are welcome! Please:
