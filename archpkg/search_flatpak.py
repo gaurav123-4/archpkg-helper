@@ -102,7 +102,7 @@ def search_flatpak(query: str) -> List[Tuple[str, str, str]]:
                 continue
                 
             lines_processed += 1
-            cols = line.split('\t')
+            cols = line.split()
             
             if len(cols) >= 3:
                 name = cols[0].strip()
