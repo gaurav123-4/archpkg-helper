@@ -211,7 +211,31 @@ To check the installed version of archpkg:
 ```sh
 archpkg --version
 ```
+---
 
+## 🏗️ Architecture
+
+The tool is structured as a **modular Python CLI** with:
+
+- 📝 **Command Parser**  
+  Handles subcommands like `search`, `install`, `remove`.
+
+- 🔌 **Backend Adapters**  
+  Provides an abstraction layer for each package manager:  
+  - `pacman` (Arch Linux)  
+  - `aur` (Arch User Repository)  
+  - `apt` (Debian/Ubuntu)  
+  - `dnf` (Fedora)  
+  - `flatpak`  
+  - `snap`
+
+- 🖥️ **System Detector**  
+  Automatically detects your Linux distribution and selects the correct package manager.
+
+- ⚡ **Installer Script (`install.sh`)**  
+  One-line setup that ensures Python, pip, and pipx are installed before deploying `archpkg`.
+
+This modular architecture makes the project **extensible** — new package managers can be added with minimal changes.
 
 ---
 
@@ -283,6 +307,25 @@ Contributions are welcome! Please:
 5. Open a Pull Request
 
 Report bugs or request features via the [issue tracker](https://github.com/AdmGenSameer/archpkg-helper/issues).
+---
+
+## 🛣️ Roadmap
+
+Here’s what’s planned for future releases of **archpkg-helper**:
+
+- 🔧 **Add support for `zypper` (openSUSE)**  
+  Extend backend adapters to cover openSUSE users.
+
+- ⚡ **Caching layer for faster searches**  
+  Improve performance by reducing repeated lookups across package managers.
+
+- 💻 **Interactive mode (`archpkg interactive`)**  
+  A guided, menu-driven interface to search, choose a package source, and install/remove easily.
+
+- 🖼️ **GUI frontend (future idea)**  
+  Build a graphical user interface on top of the CLI for desktop users who prefer point-and-click.
+  
+---
 
 ## License
 
