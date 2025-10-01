@@ -1,44 +1,82 @@
 #!/bin/bash
-
 set -e
 
-echo "[*] Installing ArchPkg CLI..."
+# ------------------------------
+# Header
+# ------------------------------
+echo "[*] Starting universal installation of ArchPkg CLI..."
 
-# Check for Python
-if ! command -v python3 &> /dev/null; then
-    echo "[*] Python3 not found. Installing..."
-    if [ -f /etc/debian_version ]; then
-        sudo apt update && sudo apt install -y python3 python3-pip
-    elif [ -f /etc/redhat-release ]; then
-        sudo dnf install -y python3 python3-pip
-    elif command -v pacman &> /dev/null; then
-        sudo pacman -S --noconfirm python python-pip
-    else
-        echo "[!] Unsupported distro. Please install Python3 manually."
-        exit 1
-    fi
+# ------------------------------
+# Step 1: Detect Linux distro
+# ------------------------------
+if [ -f /etc/os-release ]; then
+    . /etc/os-release
+    DISTRO=$ID
+    echo "[*] Detected Linux distro: $NAME ($DISTRO)"
+else
+    echo "[!] Cannot detect Linux distribution. Exiting."
+    exit 1
 fi
 
-# Install pip if missing
-if ! command -v pip3 &> /dev/null; then
-    echo "[*] pip not found. Installing..."
-    curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
-    python3 get-pip.py
-fi
+# ------------------------------
+# Step 2: Define essential system dependencies
+# ------------------------------
+DEPENDENCIES=(python3 python3-pip python3-venv git curl wget)
 
+# ------------------------------
+# Step 3: Define shared install function
+# ------------------------------
+install_package() {
+    PACKAGE=$1
+    echo "[*] Installing $PACKAGE if missing..."
+    case "$DISTRO" in
+        ubuntu|debian)
+            dpkg -s "$PACKAGE" &> /dev/null || sudo apt install -y "$PACKAGE"
+            ;;
+        fedora)
+            rpm -q "$PACKAGE" &> /dev/null || sudo dnf install -y "$PACKAGE"
+            ;;
+        arch)
+            pacman -Qi "$PACKAGE" &> /dev/null || sudo pacman -S --noconfirm "$PACKAGE"
+            ;;
+        *)
+            echo "[!] Unsupported Linux distro: $DISTRO"
+            exit 1
+            ;;
+    esac
+}
 
-# Check for pipx
+# ------------------------------
+# Step 4: Install system dependencies
+# ------------------------------
+echo "[*] Checking and installing system dependencies..."
+for pkg in "${DEPENDENCIES[@]}"; do
+    install_package "$pkg"
+done
+
+# ------------------------------
+# Step 5: Install pipx if missing
+# ------------------------------
 if ! command -v pipx &> /dev/null; then
-    echo "[*] pipx not found. Installing..."
-    if command -v pacman &> /dev/null; then
-        sudo pacman -S --noconfirm python-pipx
-    else
-        python3 -m pip install --user pipx
-        python3 -m pipx ensurepath
-    fi
+    echo "[*] Installing pipx..."
+    python3 -m pip install --user pipx
+    python3 -m pipx ensurepath
+else
+    echo "[*] pipx is already installed."
 fi
 
-# Install ArchPkg CLI with pipx from current directory
-pipx install .
+# ------------------------------
+# Step 6: Install ArchPkg CLI
+# ------------------------------
+if ! command -v archpkg &> /dev/null; then
+    echo "[*] Installing ArchPkg CLI via pipx..."
+    pipx install .
+else
+    echo "[*] ArchPkg CLI is already installed. Use '--force' to reinstall."
+fi
 
-echo "[✔] ArchPkg installed via pipx. Run with: archpkg"
+# ------------------------------
+# Step 7: Completion message
+# ------------------------------
+echo "[✔] Universal installation complete! Run 'archpkg --help' to verify."
+
