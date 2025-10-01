@@ -22,7 +22,7 @@ fi
 # Step 2: Define essential system dependencies
 # ------------------------------
 if [ "$DISTRO" = "arch" ]; then
-    DEPENDENCIES=(python python-pip python-venv git curl wget)
+    DEPENDENCIES=(python python-pip git curl wget)
 else
     DEPENDENCIES=(python3 python3-pip python3-venv git curl wget)
 fi
