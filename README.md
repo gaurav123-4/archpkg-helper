@@ -7,7 +7,7 @@
 
 <div align="center">
   
-![GSSoC Logo](https://github.com/GSSoC24/.github/blob/main/banner.png)
+![GSSoC Banner](assets/gssoc-banner.png)
 
 </div>
 
