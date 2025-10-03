@@ -1,3 +1,17 @@
+---
+
+<h2 align="center">🎯 Open Source Programmes ⭐</h2>
+<p align="center">
+  <b>This project is now OFFICIALLY accepted for:</b>
+</p>
+
+<div align="center">
+  
+![GSSoC Logo](https://github.com/GSSoC24/.github/blob/main/banner.png)
+
+</div>
+
+
 # archpkg-helper
 
 A cross-distro command-line utility that helps you search for packages and generate install commands for native package managers (pacman, AUR, apt, dnf, flatpak, snap). It aims to make discovering and installing software on Linux simpler, regardless of your distribution.
