@@ -7,7 +7,7 @@
 
 <div align="center">
   
-![GSSoC Banner](assets/gssoc-banner.png)
+![GSSoC Banner](assets/gssoc.png)
 
 </div>
 
