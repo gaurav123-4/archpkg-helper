@@ -345,7 +345,7 @@ Here’s what’s planned for future releases of **archpkg-helper**:
 
 <p align="center">
   <a href="https://discord.gg/bN7ycNdCR">
-    <img src="assets/joinDiscordIcon.png" alt="Admin Discord" width="250"/>
+    <img src="assets/joinDiscordIcon.png" alt="Admin Discord" width="500"/>
   </a>
 </p>
 
