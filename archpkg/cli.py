@@ -556,5 +556,5 @@ if __name__ == '__main__':
             border_style="red"
         ))
         sys.exit(1) 
-
-app = main
+def app():
+    main()
