@@ -340,6 +340,15 @@ Here’s what’s planned for future releases of **archpkg-helper**:
   Build a graphical user interface on top of the CLI for desktop users who prefer point-and-click.
   
 ---
+<h2 align="center">💬 Join Our Community on Discord</h2>
+
+
+<p align="center">
+  <a href="https://discord.gg/bN7ycNdCR">
+    <img src="assets/joinDiscordIcon.png" alt="Admin Discord" width="250"/>
+  </a>
+</p>
+
 
 ## License
 
