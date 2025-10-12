@@ -278,6 +278,7 @@ archpkg remove firefox
 Top-level layout of this repository:
 ```
 archpkg-helper/
+├── .github/                  # issue templates and pull request template
 ├── archpkg/                  # Core Python package code (CLI and logic)
 ├── install.sh                # One-command installer script (uses pipx)
 ├── pyproject.toml            # Build/metadata configuration
