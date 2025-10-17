@@ -23,6 +23,7 @@ from archpkg.search_apt import search_apt
 from archpkg.search_dnf import search_dnf
 from archpkg.command_gen import generate_command
 from archpkg.logging_config import get_logger, PackageHelperLogger
+from archpkg.suggest import suggest_apps, list_purposes
 
 console = Console()
 logger = get_logger(__name__)
@@ -316,10 +317,22 @@ def main() -> None:
     logger.info("Starting archpkg-helper CLI")
     
     parser = argparse.ArgumentParser(description="Universal Package Helper CLI")
-    parser.add_argument('query', type=str, nargs='*', help='Name of the software to search for')
+    subparsers = parser.add_subparsers(dest='command', help='Available commands')
+    
+    # Search command (default behavior)
+    search_parser = subparsers.add_parser('search', help='Search for packages by name')
+    search_parser.add_argument('query', type=str, nargs='*', help='Name of the software to search for')
+    search_parser.add_argument('--aur', action='store_true', help='Prefer AUR packages over Pacman when both are available')
+    
+    # Suggest command
+    suggest_parser = subparsers.add_parser('suggest', help='Get app suggestions based on purpose')
+    suggest_parser.add_argument('purpose', type=str, nargs='*', help='Purpose or use case (e.g., "video editing", "office")')
+    suggest_parser.add_argument('--list', action='store_true', help='List all available purposes')
+    
+    # Global arguments
     parser.add_argument('--debug', action='store_true', help='Enable debug logging to console')
     parser.add_argument('--log-info', action='store_true', help='Show logging configuration and exit')
-    parser.add_argument('--aur', action='store_true', help='Prefer AUR packages over Pacman when both are available')
+    
     args = parser.parse_args()
     
     # Enable debug mode if requested
@@ -342,15 +355,78 @@ def main() -> None:
         ))
         return
     
+    # Handle different commands
+    if args.command == 'suggest':
+        handle_suggest_command(args)
+        return
+    elif args.command == 'search' or args.command is None:
+        # Default to search behavior for backward compatibility
+        handle_search_command(args)
+        return
+    else:
+        console.print(Panel(
+            "[red]Unknown command.[/red]\n\n"
+            "[bold cyan]Available commands:[/bold cyan]\n"
+            "- [cyan]archpkg search firefox[/cyan] - Search for packages by name\n"
+            "- [cyan]archpkg suggest video editing[/cyan] - Get app suggestions by purpose\n"
+            "- [cyan]archpkg suggest --list[/cyan] - List all available purposes\n"
+            "- [cyan]archpkg --help[/cyan] - Show help information",
+            title="Invalid Command",
+            border_style="red"
+        ))
+        return
+
+
+def handle_suggest_command(args) -> None:
+    """Handle the suggest command."""
+    if args.list:
+        logger.info("Listing all available purposes")
+        list_purposes()
+        return
+    
+    if not args.purpose:
+        console.print(Panel(
+            "[red]No purpose specified.[/red]\n\n"
+            "[bold cyan]Usage:[/bold cyan]\n"
+            "- [cyan]archpkg suggest video editing[/cyan] - Get video editing apps\n"
+            "- [cyan]archpkg suggest office[/cyan] - Get office applications\n"
+            "- [cyan]archpkg suggest --list[/cyan] - List all available purposes\n"
+            "- [cyan]archpkg suggest --help[/cyan] - Show help information",
+            title="No Purpose Specified",
+            border_style="red"
+        ))
+        return
+    
+    purpose = ' '.join(args.purpose)
+    logger.info(f"Purpose suggestion query: '{purpose}'")
+    
+    if not purpose.strip():
+        logger.warning("Empty purpose query provided by user")
+        console.print(Panel(
+            "[red]Empty purpose query provided.[/red]\n\n"
+            "[bold cyan]Usage:[/bold cyan]\n"
+            "- [cyan]archpkg suggest video editing[/cyan] - Get video editing apps\n"
+            "- [cyan]archpkg suggest office[/cyan] - Get office applications\n"
+            "- [cyan]archpkg suggest --list[/cyan] - List all available purposes",
+            title="Invalid Input",
+            border_style="red"
+        ))
+        return
+    
+    # Display suggestions
+    suggest_apps(purpose)
+
+
+def handle_search_command(args) -> None:
+    """Handle the search command (original functionality)."""
     if not args.query:
         console.print(Panel(
             "[red]No search query provided.[/red]\n\n"
             "[bold cyan]Usage:[/bold cyan]\n"
-            "- [cyan]archpkg firefox[/cyan] - Search for Firefox\n"
-            "- [cyan]archpkg visual studio code[/cyan] - Search for VS Code\n"
-            "- [cyan]archpkg --aur firefox[/cyan] - Prefer AUR packages over Pacman\n"
-            "- [cyan]archpkg --debug firefox[/cyan] - Search with debug output\n"
-            "- [cyan]archpkg --log-info[/cyan] - Show logging configuration\n"
+            "- [cyan]archpkg search firefox[/cyan] - Search for Firefox\n"
+            "- [cyan]archpkg search visual studio code[/cyan] - Search for VS Code\n"
+            "- [cyan]archpkg search --aur firefox[/cyan] - Prefer AUR packages over Pacman\n"
+            "- [cyan]archpkg suggest video editing[/cyan] - Get app suggestions by purpose\n"
             "- [cyan]archpkg --help[/cyan] - Show help information",
             title="Invalid Input",
             border_style="red"
@@ -365,10 +441,10 @@ def main() -> None:
         console.print(Panel(
             "[red]Empty search query provided.[/red]\n\n"
             "[bold cyan]Usage:[/bold cyan]\n"
-            "- [cyan]archpkg firefox[/cyan] - Search for Firefox\n"
-            "- [cyan]archpkg visual studio code[/cyan] - Search for VS Code\n"
-            "- [cyan]archpkg --aur firefox[/cyan] - Prefer AUR packages over Pacman\n"
-            "- [cyan]archpkg --help[/cyan] - Show help information",
+            "- [cyan]archpkg search firefox[/cyan] - Search for Firefox\n"
+            "- [cyan]archpkg search visual studio code[/cyan] - Search for VS Code\n"
+            "- [cyan]archpkg search --aur firefox[/cyan] - Prefer AUR packages over Pacman\n"
+            "- [cyan]archpkg suggest video editing[/cyan] - Get app suggestions by purpose",
             title="Invalid Input",
             border_style="red"
         ))

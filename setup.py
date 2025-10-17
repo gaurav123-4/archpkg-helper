@@ -9,7 +9,8 @@ setup(
         'rich',
         'fuzzywuzzy',
         'python-Levenshtein',
-        'distro'
+        'distro',
+        'PyYAML'
     ],
     entry_points={
         'console_scripts': [
