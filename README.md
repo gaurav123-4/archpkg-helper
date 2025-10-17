@@ -1,3 +1,17 @@
+---
+
+<h2 align="center">🎯 Open Source Programmes ⭐</h2>
+<p align="center">
+  <b>This project is now OFFICIALLY accepted for:</b>
+</p>
+
+<div align="center">
+  
+![GSSoC Banner](assets/gssoc.png)
+
+</div>
+
+
 # archpkg-helper
 
 A cross-distro command-line utility that helps you search for packages and generate install commands for native package managers (pacman, AUR, apt, dnf, flatpak, snap). It aims to make discovering and installing software on Linux simpler, regardless of your distribution.
@@ -327,6 +341,15 @@ Here’s what’s planned for future releases of **archpkg-helper**:
   Build a graphical user interface on top of the CLI for desktop users who prefer point-and-click.
   
 ---
+<h2 align="center">💬 Join Our Community on Discord</h2>
+
+
+<p align="center">
+  <a href="https://discord.gg/bN7ycNdCR">
+    <img src="assets/joinDiscordIcon.png" alt="Admin Discord" width="500"/>
+  </a>
+</p>
+
 
 ## License
 
