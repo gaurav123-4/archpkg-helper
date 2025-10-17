@@ -111,6 +111,47 @@ def is_valid_package(name: str, desc: Optional[str]) -> bool:
     
     return not is_junk
 
+def deduplicate_packages(packages: List[Tuple[str, str, str]], prefer_aur: bool = False) -> List[Tuple[str, str, str]]:
+    """Remove duplicate packages, preferring Pacman over AUR by default.
+    
+    Args:
+        packages: List of (name, description, source) tuples
+        prefer_aur: If True, prefer AUR packages over Pacman when duplicates exist
+        
+    Returns:
+        List[Tuple[str, str, str]]: Deduplicated packages with preferred sources
+    """
+    logger.debug(f"Deduplicating {len(packages)} packages, prefer_aur={prefer_aur}")
+    
+    
+    package_groups = {}
+    for name, desc, source in packages:
+        if name not in package_groups:
+            package_groups[name] = []
+        package_groups[name].append((name, desc, source))
+    
+    deduplicated = []
+    for name, group in package_groups.items():
+        if len(group) == 1:
+            deduplicated.append(group[0])
+        else:
+            sources = [source for _, _, source in group]
+            
+            if prefer_aur and 'aur' in sources:
+                preferred = next((pkg for pkg in group if pkg[2] == 'aur'), group[0])
+                logger.debug(f"Package '{name}' available in multiple sources, preferring AUR")
+            elif 'pacman' in sources:
+                preferred = next((pkg for pkg in group if pkg[2] == 'pacman'), group[0])
+                logger.debug(f"Package '{name}' available in multiple sources, preferring Pacman")
+            else:
+                preferred = group[0]
+                logger.debug(f"Package '{name}' available in multiple sources, using first: {preferred[2]}")
+            
+            deduplicated.append(preferred)
+    
+    logger.info(f"Deduplicated {len(packages)} packages to {len(deduplicated)} unique packages")
+    return deduplicated
+
 def get_top_matches(query: str, all_packages: List[Tuple[str, str, str]], limit: int = 5) -> List[Tuple[str, str, str]]:
     """Get top matching packages with improved scoring algorithm."""
     logger.debug(f"Scoring {len(all_packages)} packages for query: '{query}'")
@@ -134,7 +175,6 @@ def get_top_matches(query: str, all_packages: List[Tuple[str, str, str]], limit:
 
         score = 0
 
-        # Exact match scoring
         if query == name_l:
             score += 150
             logger.debug(f"Exact match bonus for '{name}': +150")
@@ -142,7 +182,6 @@ def get_top_matches(query: str, all_packages: List[Tuple[str, str, str]], limit:
             score += 80
             logger.debug(f"Substring match bonus for '{name}': +80")
 
-        # Fuzzy token matching
         for q in query_tokens:
             for token in name_tokens:
                 if token.startswith(q):
@@ -280,6 +319,7 @@ def main() -> None:
     parser.add_argument('query', type=str, nargs='*', help='Name of the software to search for')
     parser.add_argument('--debug', action='store_true', help='Enable debug logging to console')
     parser.add_argument('--log-info', action='store_true', help='Show logging configuration and exit')
+    parser.add_argument('--aur', action='store_true', help='Prefer AUR packages over Pacman when both are available')
     args = parser.parse_args()
     
     # Enable debug mode if requested
@@ -308,6 +348,7 @@ def main() -> None:
             "[bold cyan]Usage:[/bold cyan]\n"
             "- [cyan]archpkg firefox[/cyan] - Search for Firefox\n"
             "- [cyan]archpkg visual studio code[/cyan] - Search for VS Code\n"
+            "- [cyan]archpkg --aur firefox[/cyan] - Prefer AUR packages over Pacman\n"
             "- [cyan]archpkg --debug firefox[/cyan] - Search with debug output\n"
             "- [cyan]archpkg --log-info[/cyan] - Show logging configuration\n"
             "- [cyan]archpkg --help[/cyan] - Show help information",
@@ -326,6 +367,7 @@ def main() -> None:
             "[bold cyan]Usage:[/bold cyan]\n"
             "- [cyan]archpkg firefox[/cyan] - Search for Firefox\n"
             "- [cyan]archpkg visual studio code[/cyan] - Search for VS Code\n"
+            "- [cyan]archpkg --aur firefox[/cyan] - Prefer AUR packages over Pacman\n"
             "- [cyan]archpkg --help[/cyan] - Show help information",
             title="Invalid Input",
             border_style="red"
@@ -417,7 +459,10 @@ def main() -> None:
         github_fallback(query)
         return
 
-    top_matches = get_top_matches(query, results, limit=5)
+    deduplicated_results = deduplicate_packages(results, prefer_aur=args.aur)
+    logger.info(f"After deduplication: {len(deduplicated_results)} unique packages")
+
+    top_matches = get_top_matches(query, deduplicated_results, limit=5)
     if not top_matches:
         logger.warning("No close matches found after scoring")
         console.print(Panel(
@@ -444,7 +489,6 @@ def main() -> None:
 
     console.print(table)
     
-    # Interactive installation flow
     try:
         logger.info("Starting interactive installation flow")
         choice = input("\nSelect a package to install [1-5 or press Enter to cancel]: ")
