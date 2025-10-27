@@ -98,3 +98,30 @@ PERFORMANCE_CONFIG = {
     'enable_memory_logging': False,
     'enable_detailed_tracing': False
 }
+
+# Cache configuration settings
+CACHE_CONFIG = {
+    'enabled': True,
+    'ttl_seconds': 24 * 60 * 60,  # 24 hours default
+    'max_entries': 1000,
+    'cleanup_interval': 3600,  # 1 hour
+    'cache_dir': None,  # Auto-detect using XDG_CACHE_HOME
+    'db_name': 'cache.db',
+    
+    # Privacy settings
+    'respect_privacy': True,
+    'exclude_sensitive_queries': True,
+    'max_description_length': 500,
+    
+    # Performance settings
+    'enable_compression': False,  # Future feature
+    'batch_size': 100,  # For bulk operations
+    'connection_timeout': 5.0,  # Database connection timeout
+}
+
+# Cache-related timeouts (separate from search timeouts)
+CACHE_TIMEOUTS = {
+    'db_connection': 5.0,
+    'cleanup_operation': 30.0,
+    'stats_query': 10.0,
+}
