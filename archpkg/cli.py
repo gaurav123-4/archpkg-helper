@@ -24,7 +24,11 @@ from archpkg.search_dnf import search_dnf
 from archpkg.command_gen import generate_command
 from archpkg.logging_config import get_logger, PackageHelperLogger
 from archpkg.suggest import suggest_apps, list_purposes
+ master
 from archpkg.completion import complete_packages
+
+from archpkg.cache import get_cache_manager, CacheConfig
+ main
 
 console = Console()
 logger = get_logger(__name__)
@@ -324,6 +328,7 @@ def main() -> None:
     search_parser = subparsers.add_parser('search', help='Search for packages by name')
     search_parser.add_argument('query', type=str, nargs='*', help='Name of the software to search for')
     search_parser.add_argument('--aur', action='store_true', help='Prefer AUR packages over Pacman when both are available')
+    search_parser.add_argument('--no-cache', action='store_true', help='Bypass cache and perform fresh search')
     
     # Suggest command
     suggest_parser = subparsers.add_parser('suggest', help='Get app suggestions based on purpose')
@@ -339,13 +344,52 @@ def main() -> None:
     # Global arguments
     parser.add_argument('--debug', action='store_true', help='Enable debug logging to console')
     parser.add_argument('--log-info', action='store_true', help='Show logging configuration and exit')
+    parser.add_argument('--no-cache', action='store_true', help='Bypass cache and perform fresh search')
+    parser.add_argument('--cache-stats', action='store_true', help='Show cache statistics and exit')
+    parser.add_argument('--clear-cache', choices=['all', 'aur', 'pacman', 'apt', 'dnf', 'flatpak', 'snap'], 
+                       help='Clear cache for specified source or all sources')
     
     args = parser.parse_args()
+    
+    # Initialize cache manager
+    cache_config = CacheConfig(enabled=not args.no_cache)
+    cache_manager = get_cache_manager(cache_config)
     
     # Enable debug mode if requested
     if args.debug:
         PackageHelperLogger.set_debug_mode(True)
         logger.info("Debug mode enabled via command line argument")
+    
+    # Handle cache-related commands
+    if args.cache_stats:
+        stats = cache_manager.get_stats()
+        console.print(Panel(
+            f"[bold cyan]Cache Statistics:[/bold cyan]\n"
+            f"Enabled: {'[green]Yes[/green]' if stats.get('enabled') else '[red]No[/red]'}\n"
+            f"Total entries: [yellow]{stats.get('total_entries', 0)}[/yellow]\n"
+            f"Valid entries: [green]{stats.get('valid_entries', 0)}[/green]\n"
+            f"Total accesses: [blue]{stats.get('total_accesses', 0)}[/blue]\n"
+            f"Average access count: [magenta]{stats.get('avg_access_count', 0)}[/magenta]\n"
+            f"Database path: [cyan]{stats.get('db_path', 'N/A')}[/cyan]\n"
+            f"TTL: [yellow]{stats.get('config', {}).get('ttl_seconds', 0)}s[/yellow]\n"
+            f"Max entries: [yellow]{stats.get('config', {}).get('max_entries', 0)}[/yellow]\n\n"
+            f"[bold]Source breakdown:[/bold]\n" + 
+            '\n'.join([f"  {source}: {count}" for source, count in stats.get('source_breakdown', {}).items()]),
+            title="Cache Statistics",
+            border_style="blue"
+        ))
+        return
+    
+    if args.clear_cache:
+        source = None if args.clear_cache == 'all' else args.clear_cache
+        cleared_count = cache_manager.clear(source)
+        target = args.clear_cache if args.clear_cache != 'all' else 'all sources'
+        console.print(Panel(
+            f"[green]Successfully cleared {cleared_count} cache entries for {target}.[/green]",
+            title="Cache Cleared",
+            border_style="green"
+        ))
+        return
     
     # Show logging info if requested
     if args.log_info:
@@ -371,7 +415,7 @@ def main() -> None:
         return
     elif args.command == 'search' or args.command is None:
         # Default to search behavior for backward compatibility
-        handle_search_command(args)
+        handle_search_command(args, cache_manager)
         return
     else:
         console.print(Panel(
@@ -449,7 +493,7 @@ def handle_suggest_command(args) -> None:
     suggest_apps(purpose)
 
 
-def handle_search_command(args) -> None:
+def handle_search_command(args, cache_manager) -> None:
     """Handle the search command (original functionality)."""
     if not args.query:
         console.print(Panel(
@@ -487,6 +531,7 @@ def handle_search_command(args) -> None:
 
     results = []
     search_errors = []
+    use_cache = not args.no_cache
 
     # Search based on detected distribution
     if detected == "arch":
@@ -494,7 +539,7 @@ def handle_search_command(args) -> None:
         
         try:
             logger.debug("Starting AUR search")
-            aur_results = search_aur(query)
+            aur_results = search_aur(query, cache_manager if use_cache else None)
             results.extend(aur_results)
             logger.info(f"AUR search returned {len(aur_results)} results")
         except Exception as e:
@@ -503,7 +548,7 @@ def handle_search_command(args) -> None:
             
         try:
             logger.debug("Starting pacman search")
-            pacman_results = search_pacman(query) 
+            pacman_results = search_pacman(query, cache_manager if use_cache else None) 
             results.extend(pacman_results)
             logger.info(f"Pacman search returned {len(pacman_results)} results")
         except Exception as e:
@@ -515,7 +560,7 @@ def handle_search_command(args) -> None:
         
         try:
             logger.debug("Starting APT search")
-            apt_results = search_apt(query)
+            apt_results = search_apt(query, cache_manager if use_cache else None)
             results.extend(apt_results)
             logger.info(f"APT search returned {len(apt_results)} results")
         except Exception as e:
@@ -527,7 +572,7 @@ def handle_search_command(args) -> None:
         
         try:
             logger.debug("Starting DNF search")
-            dnf_results = search_dnf(query)
+            dnf_results = search_dnf(query, cache_manager if use_cache else None)
             results.extend(dnf_results)
             logger.info(f"DNF search returned {len(dnf_results)} results")
         except Exception as e:
@@ -539,7 +584,7 @@ def handle_search_command(args) -> None:
     
     try:
         logger.debug("Starting Flatpak search")
-        flatpak_results = search_flatpak(query)
+        flatpak_results = search_flatpak(query, cache_manager if use_cache else None)
         results.extend(flatpak_results)
         logger.info(f"Flatpak search returned {len(flatpak_results)} results")
     except Exception as e:
@@ -548,7 +593,7 @@ def handle_search_command(args) -> None:
 
     try:
         logger.debug("Starting Snap search")
-        snap_results = search_snap(query)
+        snap_results = search_snap(query, cache_manager if use_cache else None)
         results.extend(snap_results)
         logger.info(f"Snap search returned {len(snap_results)} results")
     except Exception as e:
